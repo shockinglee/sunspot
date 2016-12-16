@@ -12,15 +12,20 @@ module Sunspot
         end
 
         @pagination = nil
-        @parameter_adjustment = nil
+        @parameter_adjustments = []
       end
 
-      def solr_parameter_adjustment=(block)
-        @parameter_adjustment = block
+      def add_parameter_adjustment(block)
+        @parameter_adjustments << block
       end
 
       def add_sort(sort)
         @sort << sort
+      end
+
+      def add_field_list(field_list)
+        @components << field_list
+        field_list
       end
 
       def add_group(group)
@@ -53,14 +58,22 @@ module Sunspot
         stats
       end
 
-      def paginate(page, per_page, offset = nil)
+      def add_spellcheck(options = {})
+        @components << Spellcheck.new(options)
+      end
+
+      def paginate(page, per_page, offset = nil, cursor = nil)
         if @pagination
           @pagination.offset = offset
           @pagination.page = page
           @pagination.per_page = per_page
+          @pagination.cursor = cursor
         else
-          @components << @pagination = Pagination.new(page, per_page, offset)
+          @components << @pagination = Pagination.new(page, per_page, offset, cursor)
         end
+
+        # cursor pagination requires a sort containing a uniqueKey field
+        add_sort(Sunspot::Query::Sort.special(:solr_id).new('asc')) if cursor and !@sort.include?('id ')
       end
 
       def to_params
@@ -68,7 +81,11 @@ module Sunspot
         @components.each do |component|
           Sunspot::Util.deep_merge!(params, component.to_params)
         end
-        @parameter_adjustment.call(params) if @parameter_adjustment
+
+        @parameter_adjustments.each do |_block|
+          _block.call(params)
+        end
+
         params[:q] ||= '*:*'
         params
       end
@@ -85,6 +102,9 @@ module Sunspot
         @pagination.per_page if @pagination
       end
 
+      def cursor
+        @pagination.cursor if @pagination
+      end
 
       private
 

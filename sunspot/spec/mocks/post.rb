@@ -3,7 +3,8 @@ require File.join(File.dirname(__FILE__), 'super_class')
 
 class Post < SuperClass
   attr_accessor :title, :body, :blog_id, :published_at, :ratings_average,
-                :author_name, :featured, :expire_date, :coordinates, :tags
+                :author_name, :featured, :expire_date, :coordinates, :tags,
+                :featured_for
   alias_method :featured?, :featured
 
   def category_ids
@@ -12,6 +13,10 @@ class Post < SuperClass
 
   def custom_string
     @custom_string ||= {}
+  end
+
+  def custom_underscored_string
+    @custom_underscored_string ||= {}
   end
 
   def custom_fl
@@ -27,7 +32,7 @@ class Post < SuperClass
   end
 
   private
-  attr_writer :category_ids, :custom_string, :custom_fl, :custom_time, :custom_boolean
+  attr_writer :category_ids, :custom_string, :custom_underscored_string, :custom_fl, :custom_time, :custom_boolean
 end
 
 Sunspot.setup(Post) do
@@ -43,6 +48,7 @@ Sunspot.setup(Post) do
   float :average_rating, :using => :ratings_average, :trie => true
   time :published_at, :trie => true
   date :expire_date
+  date_range :featured_for
   boolean :featured, :using => :featured?, :stored => true
   string :sort_title do
     title.downcase.sub(/^(a|an|the)\W+/, '') if title
@@ -57,6 +63,7 @@ Sunspot.setup(Post) do
   latlon(:coordinates_new) { coordinates }
 
   dynamic_string :custom_string, :stored => true
+  dynamic_string :custom_underscored_string, separator: '__'
   dynamic_float :custom_float, :multiple => true, :using => :custom_fl
   dynamic_integer :custom_integer do
     category_ids.inject({}) do |hash, category_id|
